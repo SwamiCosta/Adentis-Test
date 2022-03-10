@@ -1,0 +1,9 @@
+entities\OrderQtAgeDTO.class
+utils\Age.class
+entities\Item.class
+logical\OrderLogical.class
+entities\Order.class
+ApplicationStarter.class
+entities\Product.class
+logical\IntervalLogical.class
+logical\OrderFactory.class

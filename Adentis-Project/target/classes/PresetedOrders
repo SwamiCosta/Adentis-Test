@@ -1,0 +1,56 @@
+[
+    {
+        "customerName" : "name1",
+        "customerContact" : "123456",
+        "shippingAddress" : "rua fulano, 123, cidade regiao",
+        "grandTotal" : 1000.00,
+        "orderDate" : "2022-01-02 00:00:00",
+        "itemList" : [
+            {
+                "cost": 700,
+                "shippingFee": 100,
+                "taxAmount": 200,
+                "product" : {
+                    "name" : "gym equipment",
+                    "category" : "whatever",
+                    "weight" : 5.0,
+                    "price" : 700,
+                    "creationDate" : "2022-01-02 00:00:00"
+                }
+            },
+            {
+                "cost": 700,
+                "shippingFee": 100,
+                "taxAmount": 200,
+                "product" : {
+                    "name" : "gym equipment",
+                    "category" : "whatever",
+                    "weight" : 5.0,
+                    "price" : 700,
+                    "creationDate" : "2021-01-02 00:00:00"
+                }
+            }
+        ]
+    },
+    {
+        "customerName" : "name1",
+        "customerContact" : "123456",
+        "shippingAddress" : "rua fulano, 123, cidade regiao",
+        "grandTotal" : 1000.00,
+        "orderDate" : "2022-01-02 00:00:00",
+        "itemList" : [
+            {
+                "cost": 700,
+                "shippingFee": 100,
+                "taxAmount": 200,
+                "product" : {
+                    "name" : "gym equipment",
+                    "category" : "whatever",
+                    "weight" : 5.0,
+                    "price" : 700,
+                    "creationDate" : "2021-08-01 00:00:00"
+                }
+            }
+        ]
+    }
+]
