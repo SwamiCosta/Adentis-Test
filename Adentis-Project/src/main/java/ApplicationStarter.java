@@ -1,4 +1,3 @@
-import entities.OrderQtAgeDTO;
 import logical.IntervalLogical;
 import logical.OrderLogical;
 
@@ -13,20 +12,14 @@ import java.util.stream.Collectors;
 public class ApplicationStarter {
 
     public static void main(String[] args){
-
-        //orchestrate(new String[] {"2021-01-01 00:00:00","2023-01-01 00:00:00"});
-        //orchestrate(new String[] {"2021-01-01 00:00:00","2023-01-01 00:00:00", "n"});
-        //orchestrate(new String[] {"2021-01-01 00:00:00","2023-01-01 00:00:00", ">11"});
-        //orchestrate(new String[] {"2022-01-01 00:00:00","2023-01-01 00:00:00", ">1", "<123", ">123", "5-19", "to10"});
-        //orchestrate(new String[] {"2022-01-01 00:00:00","2023-01-01 00:00:00", ">1", "<123", "11-19", "a"});
-        //orchestrate(new String[] {"2022-01-01 00:00:00","2023-01-01 00:00:00", "a"});
-        //orchestrate(new String[] {"2022-01-01 00:00:00","2023-01-01 00:00:00", "11-1"});
-        //orchestrate(new String[] {"2022-01-01 00:00:00","2023-01-01 00:00:00", ">a"});
-        //orchestrate(new String[] {"2022-01-01 00:00:00","2023-01-01 00:00:00", "a-21"});
-        //orchestrate(new String[] {"2022-01-01 00:00:00","2023-01-01 00:00:00", "21-a"});
         orchestrate(args);
     }
 
+    /**
+     * This methods will validate the input and determine values for all the options (it will use default values in case they were not provided by user)
+     *
+     * @param args
+     */
     private static void orchestrate(String[] args){
         try {
             if(args.length >= 2){
@@ -36,8 +29,6 @@ public class ApplicationStarter {
 
                 var dateTime1 = LocalDateTime.parse(args[0], formatter);
                 var dateTime2 = LocalDateTime.parse(args[1], formatter);
-
-                List<OrderQtAgeDTO> qtAgeList = new ArrayList<OrderQtAgeDTO>();
 
                 if(args.length > 2) {
                     List<String> givenArguments = Arrays.stream(args)

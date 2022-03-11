@@ -3,6 +3,7 @@ package logical;
 import entities.Item;
 import entities.Order;
 import entities.Product;
+import entities.ProductDateDTO;
 import utils.Age;
 
 import java.io.BufferedReader;
@@ -17,12 +18,14 @@ import java.util.stream.Collectors;
 
 public class OrderLogical {
 
+    private static final String TIMEOUT_MESSAGE = "Timeout Limit Time expired, check the OutputData file later to see the results";
+
     public static String getOrdersInsidePeriod(LocalDateTime date1, LocalDateTime date2, List<String> intervals, Boolean useNow) throws IOException, InterruptedException {
-        return getOrdersInsidePeriod(date1, date2, intervals,1, useNow);
+        return getOrdersInsidePeriod(date1, date2, intervals,5, useNow);
     }
 
     public static String getOrdersInsidePeriod(LocalDateTime date1, LocalDateTime date2, Boolean useNow) throws IOException, InterruptedException {
-        return getOrdersInsidePeriod(date1, date2, 1, useNow);
+        return getOrdersInsidePeriod(date1, date2, 5, useNow);
     }
 
     public static String getOrdersInsidePeriod(LocalDateTime date1, LocalDateTime date2, Integer timeoutLimit, Boolean useNow) throws IOException, InterruptedException {
@@ -31,6 +34,18 @@ public class OrderLogical {
         ), timeoutLimit, useNow);
     }
 
+    /**
+     * Gets an output classifying Age (in months) and the amount of orders with products in that age. The orders must be inside a range of dates
+     *
+     * @param date1 Date 1 to determine the range of orders
+     * @param date2 Date 2 to determine the range of order
+     * @param intervals Intervals of months (ages) to classify the products
+     * @param timeoutLimit A timeout limit in seconds in case the process takes to long
+     * @param useNow A Boolean option to consider today's date instead of the order date in the moment of calculating the product age.
+     * @return A String having Age (in months) and the amount of orders with products in that age.
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public static String getOrdersInsidePeriod(LocalDateTime date1, LocalDateTime date2, List<String> intervals, Integer timeoutLimit, Boolean useNow) throws IOException, InterruptedException {
         List<Order> ordersInRange;
 
@@ -40,17 +55,17 @@ public class OrderLogical {
             ordersInRange = filterOrdersByRange(date2, date1);
         }
 
-        List<Product> productList = new ArrayList<Product>();
+        List<ProductDateDTO> productList = new ArrayList<>();
 
         for (Order order: ordersInRange) {
             for (Item item: order.getItemList()) {
-                productList.add(item.getProduct());
+                productList.add(new ProductDateDTO(item.getProduct(), useNow ? LocalDateTime.now() : order.getOrderDate()));
             }
         }
 
-        LocalDateTime dateToConsider = useNow ? LocalDateTime.now() : date1;
+        LocalDateTime dateToConsider =  date1;
 
-        return calculateAgeAndQuantity(productList, intervals, timeoutLimit, dateToConsider);
+        return calculateAgeAndQuantity(productList, intervals, timeoutLimit);
     }
 
     /**
@@ -73,36 +88,70 @@ public class OrderLogical {
     }
 
     /**
-     * Receives a list of Products and calculates their age based on predefined Sets of Months
+     * Calculate all product ages and them classify them in a set of intervals. The process is divided in one thread for each interval.
+     * Each thread writes in the file OutputData, and then this method reads the file after a moment and returns its contents.
      *
-     * @param productList the Product List to be evaluated
-     * @return A list of Data binding and age to quantity of Orders made
+     * @param productList List of all products to be classified by age
+     * @param intervals Set of intervals (Ages) to classify the products in
+     * @param timeoutLimit A timeout limit in case the process takes to much time.
+     * @return The complete output of Age and amount of orders made with products in that age
+     * @throws IOException
+     * @throws InterruptedException
      */
-    private static String calculateAgeAndQuantity(List<Product> productList, List<String> intervals, Integer timeoutLimit, LocalDateTime dateToConsider) throws IOException, InterruptedException {
+    private static String calculateAgeAndQuantity(List<ProductDateDTO> productList, List<String> intervals, Integer timeoutLimit) throws IOException, InterruptedException {
 
         new FileWriter("OutputData", false).close();
 
         for (String interval: intervals){
-            Thread thread = new Thread(() -> findProductsInInterval(productList, interval, dateToConsider));
+            Thread thread = new Thread(() -> findProductsInInterval(productList, interval));
             thread.start();
         }
 
-        Thread.sleep(timeoutLimit*1000);
-
-        FileReader fileReader = new FileReader("OutputData");
-
-        BufferedReader bufferedReader = new BufferedReader(fileReader);
-        StringBuilder finalContent = new StringBuilder();
-        String sCurrentLine;
-        while ((sCurrentLine = bufferedReader.readLine()) != null)
-        {
-            finalContent.append(sCurrentLine).append("\n");
-        }
-
-        return finalContent.toString();
+        return recursiveOutputCheck(intervals.size(), timeoutLimit);
     }
 
-    private static void findProductsInInterval(List<Product> productList, String interval, LocalDateTime dateToConsider)  {
+    /**
+     * This method works as a listener to the OutputData file. As soon as it gets filed with all lines, then its content is returned
+     *
+     * @param intervalSize The amount of lines to count
+     * @param timeoutLimit A limit of seconds to keep trying
+     * @return The file content or a message of Timeout
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private static String recursiveOutputCheck(Integer intervalSize, Integer timeoutLimit) throws IOException, InterruptedException {
+        FileReader fileReader = new FileReader("OutputData");
+        BufferedReader bufferedReader = new BufferedReader(fileReader);
+
+        if(timeoutLimit == 0){
+            return TIMEOUT_MESSAGE;
+        } else {
+            var index = 0;
+            StringBuilder finalContent = new StringBuilder();
+            String sCurrentLine;
+            while ((sCurrentLine = bufferedReader.readLine()) != null){
+                finalContent.append(sCurrentLine).append("\n");
+                index++;
+            }
+
+            if((index == intervalSize)){
+                return finalContent.toString();
+            } else{
+                Thread.sleep(1000);
+                return recursiveOutputCheck(intervalSize, timeoutLimit-1);
+            }
+        }
+    }
+
+    /**
+     * This method will determine if a product age is a certain interval based on its creation date compared to a determined date (now or the order date,
+     *  depending on the user input).
+     * The result is written in the file OutputData
+     *
+     * @param productList The list of All products to be classified
+     * @param interval The interval where the product must be classified.
+     */
+    private static void findProductsInInterval(List<ProductDateDTO> productList, String interval)  {
 
         Integer quantity = 0;
 
@@ -110,30 +159,33 @@ public class OrderLogical {
 
         if(firstCharacter == '>'){
             Integer firstNumber = Integer.parseInt(interval.substring(1));
-            LocalDateTime monthsBefore = dateToConsider.minusMonths(firstNumber);
 
-            for (Product product: productList) {
-                if(product.getCreationDate().isBefore(monthsBefore)){
+            for (ProductDateDTO productDTO: productList) {
+                LocalDateTime monthsBefore = productDTO.getDateToConsider().minusMonths(firstNumber);
+
+                if(productDTO.getProduct().getCreationDate().isBefore(monthsBefore)){
                     quantity++;
                 }
             }
         } else if(firstCharacter == '<') {
             Integer firstNumber = Integer.parseInt(interval.substring(1));
-            LocalDateTime monthsAfter = dateToConsider.minusMonths(firstNumber);
 
-            for (Product product: productList) {
-                if(product.getCreationDate().isAfter(monthsAfter)){
+            for (ProductDateDTO productDTO: productList) {
+                LocalDateTime monthsAfter = productDTO.getDateToConsider().minusMonths(firstNumber);
+
+                if(productDTO.getProduct().getCreationDate().isAfter(monthsAfter)){
                     quantity++;
                 }
             }
         } else {
             Integer firstNumber = Integer.parseInt(interval.substring(0, interval.indexOf('-')));
             Integer secondNumber = Integer.parseInt(interval.substring(interval.indexOf('-') + 1));
-            LocalDateTime monthsBefore = dateToConsider.minusMonths(firstNumber);
-            LocalDateTime monthsAfter = dateToConsider.minusMonths(secondNumber);
 
-            for (Product product : productList) {
-                if (product.getCreationDate().isBefore(monthsBefore) && product.getCreationDate().isAfter(monthsAfter)) {
+            for (ProductDateDTO productDTO : productList) {
+                LocalDateTime monthsBefore = productDTO.getDateToConsider().minusMonths(firstNumber);
+                LocalDateTime monthsAfter = productDTO.getDateToConsider().minusMonths(secondNumber);
+
+                if (productDTO.getProduct().getCreationDate().isBefore(monthsBefore) && productDTO.getProduct().getCreationDate().isAfter(monthsAfter)) {
                     quantity++;
                 }
             }
@@ -142,7 +194,7 @@ public class OrderLogical {
         String contents = interval + " months: " + quantity.toString() +" orders\n";
 
 //        try {
-//            Thread.sleep(2000);
+//            Thread.sleep(15000);
 //        } catch (InterruptedException e) {
 //            e.printStackTrace();
 //        }
